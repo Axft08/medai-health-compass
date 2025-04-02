@@ -1,9 +1,62 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Activity, Heart, Thermometer, Clock } from "lucide-react";
+import { Activity, Heart, Thermometer, Clock, PlusCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const HealthMetrics = () => {
+  const { user } = useAuth();
+  const [hasHealthData, setHasHealthData] = useState(false);
+
+  useEffect(() => {
+    const checkHealthData = async () => {
+      if (user?.id) {
+        try {
+          const { data, error } = await supabase
+            .from('health_records')
+            .select('id')
+            .eq('user_id', user.id)
+            .limit(1);
+          
+          if (!error && data && data.length > 0) {
+            setHasHealthData(true);
+          }
+        } catch (error) {
+          console.error('Error checking health data:', error);
+        }
+      }
+    };
+
+    checkHealthData();
+  }, [user]);
+
+  if (!hasHealthData) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">Health Metrics</CardTitle>
+          <CardDescription>
+            Start tracking your health metrics
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <PlusCircle className="h-16 w-16 text-muted-foreground/60 mb-4" />
+            <h3 className="font-medium text-lg mb-2">No health data yet</h3>
+            <p className="text-sm text-muted-foreground max-w-md mb-4">
+              Connect a health tracking device or manually add your health metrics to start seeing your data here.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              You'll be able to track metrics like heart rate, activity, temperature, and sleep patterns.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>

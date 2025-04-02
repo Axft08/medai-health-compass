@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { SendIcon, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getMockResponse } from "@/lib/mockAi";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 type Message = {
   id: string;
@@ -15,6 +17,7 @@ type Message = {
 };
 
 const ChatInterface = () => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -35,6 +38,20 @@ const ChatInterface = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const saveChatHistory = async (userQuery: string, aiResponse: string) => {
+    if (!user?.id) return;
+    
+    try {
+      await supabase.from('chat_history').insert({
+        user_id: user.id,
+        user_query: userQuery,
+        ai_response: aiResponse
+      });
+    } catch (error) {
+      console.error('Error saving chat history:', error);
+    }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     
@@ -48,6 +65,7 @@ const ChatInterface = () => {
       timestamp: new Date(),
     };
     
+    const userQuery = inputValue;
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsTyping(true);
@@ -66,6 +84,12 @@ const ChatInterface = () => {
       };
       
       setMessages((prev) => [...prev, aiMessage]);
+      
+      // Save the chat to the database if user is logged in
+      if (user) {
+        saveChatHistory(userQuery, response);
+      }
+      
     } catch (error) {
       console.error("Error getting AI response:", error);
       

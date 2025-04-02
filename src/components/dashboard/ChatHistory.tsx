@@ -1,8 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, MessageCircle } from "lucide-react";
+import { Trash2, MessageCircle, LightbulbIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ChatSession {
   id: string;
@@ -13,43 +16,75 @@ interface ChatSession {
 
 const ChatHistory = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
-    // In a real app, this would fetch from an API
-    // For now, we'll use mock data
-    const mockSessions: ChatSession[] = [
-      {
-        id: "1",
-        title: "Headache Consultation",
-        date: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        preview: "What could be causing my recurring headaches?",
-      },
-      {
-        id: "2",
-        title: "Diet Recommendations",
-        date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        preview: "Can you suggest a diet plan for type 2 diabetes?",
-      },
-      {
-        id: "3",
-        title: "Medication Information",
-        date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-        preview: "What are the side effects of ibuprofen?",
-      },
-    ];
-    
-    setSessions(mockSessions);
-  }, []);
+    const fetchChatHistory = async () => {
+      if (!user?.id) return;
 
-  const handleDelete = (id: string) => {
-    setSessions((prev) => prev.filter((session) => session.id !== id));
-    
-    toast({
-      title: "Chat deleted",
-      description: "The chat session has been removed.",
-    });
+      try {
+        const { data, error } = await supabase
+          .from('chat_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const formattedSessions: ChatSession[] = data.map(chat => ({
+            id: chat.id,
+            title: chat.user_query.substring(0, 30) + (chat.user_query.length > 30 ? '...' : ''),
+            date: new Date(chat.created_at),
+            preview: chat.user_query,
+          }));
+          setSessions(formattedSessions);
+        }
+      } catch (error) {
+        console.error("Error fetching chat history:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchChatHistory();
+  }, [user]);
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('chat_history')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setSessions((prev) => prev.filter((session) => session.id !== id));
+      
+      toast({
+        title: "Chat deleted",
+        description: "The chat session has been removed.",
+      });
+    } catch (error) {
+      console.error("Error deleting chat:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the chat session.",
+        variant: "destructive",
+      });
+    }
   };
+
+  const suggestedQuestions = [
+    "What are common symptoms of seasonal allergies?",
+    "How can I improve my sleep quality?",
+    "What foods are good for heart health?",
+    "How much exercise is recommended weekly?",
+    "What are the signs of vitamin D deficiency?",
+    "How can I manage stress naturally?"
+  ];
 
   return (
     <Card>
@@ -57,7 +92,11 @@ const ChatHistory = () => {
         <CardTitle className="text-xl">Recent Conversations</CardTitle>
       </CardHeader>
       <CardContent>
-        {sessions.length > 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-pulse">Loading conversations...</div>
+          </div>
+        ) : sessions.length > 0 ? (
           <div className="space-y-4">
             {sessions.map((session) => (
               <div 
@@ -93,12 +132,43 @@ const ChatHistory = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <h3 className="font-medium text-lg">No conversations yet</h3>
-            <p className="text-sm mt-1">
-              Start a new chat to get personalized health guidance.
-            </p>
+          <div className="space-y-6 py-4">
+            <div className="text-center py-4 text-muted-foreground">
+              <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <h3 className="font-medium text-lg">No conversations yet</h3>
+              <p className="text-sm mt-1 mb-6">
+                Start a new chat to get personalized health guidance.
+              </p>
+            </div>
+            
+            <div>
+              <h3 className="font-medium mb-3 flex items-center">
+                <LightbulbIcon className="h-4 w-4 mr-2 text-amber-500" />
+                Try asking about:
+              </h3>
+              <div className="space-y-2">
+                {suggestedQuestions.map((question, index) => (
+                  <div 
+                    key={index} 
+                    className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => {
+                      // Find the chat input and focus it with this text
+                      const inputElement = document.querySelector("input[placeholder='Type your health question...']") as HTMLInputElement;
+                      if (inputElement) {
+                        inputElement.value = question;
+                        inputElement.focus();
+                        
+                        // Create and dispatch an input event
+                        const event = new Event("input", { bubbles: true });
+                        inputElement.dispatchEvent(event);
+                      }
+                    }}
+                  >
+                    <p className="text-sm">{question}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </CardContent>
