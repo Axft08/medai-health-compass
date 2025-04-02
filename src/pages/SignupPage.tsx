@@ -4,16 +4,17 @@ import { useNavigate } from "react-router-dom";
 import SignupForm from "@/components/auth/SignupForm";
 import Header from "@/components/common/Header";
 import Footer from "@/components/common/Footer";
-import { isAuthenticated } from "@/lib/auth";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SignupPage = () => {
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
   
   useEffect(() => {
-    if (isAuthenticated()) {
+    if (!loading && user) {
       navigate("/dashboard");
     }
-  }, [navigate]);
+  }, [user, loading, navigate]);
 
   return (
     <div className="flex flex-col min-h-screen">

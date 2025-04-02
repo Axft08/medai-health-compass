@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import AuthCard from "./AuthCard";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, User, AlertCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SignupForm = () => {
   const [name, setName] = useState("");
@@ -18,6 +19,7 @@ const SignupForm = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signUp, signInWithGoogle } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,32 +30,30 @@ const SignupForm = () => {
       return;
     }
     
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
-      // In a real application, this would call a registration API
-      // For now, we'll simulate a successful registration
-      if (email && password.length >= 6) {
-        // Simulate API delay
-        await new Promise(r => setTimeout(r, 800));
-        
-        // Store user authentication state
-        localStorage.setItem("medaiUser", JSON.stringify({ name, email }));
-        
-        toast({
-          title: "Account Created",
-          description: "Welcome to MedAI Health Compass!",
-        });
-        
-        navigate("/dashboard");
-      } else {
-        setError("Please provide a valid email and password (min 6 characters).");
-      }
-    } catch (error) {
-      setError("Failed to create account. Please try again.");
+      await signUp(email, password, name);
+      navigate("/dashboard");
+    } catch (error: any) {
+      setError(error.message || "Failed to create account. Please try again.");
       console.error("Signup error:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    try {
+      await signInWithGoogle();
+      // No need to navigate, the OAuth callback will handle it
+    } catch (error) {
+      console.error("Google signup error:", error);
     }
   };
 
@@ -170,12 +170,7 @@ const SignupForm = () => {
           type="button" 
           variant="outline" 
           className="w-full"
-          onClick={() => {
-            toast({
-              title: "Google Sign Up",
-              description: "This feature will be available soon!",
-            });
-          }}
+          onClick={handleGoogleSignUp}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
             <path

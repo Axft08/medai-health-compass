@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import AuthCard from "./AuthCard";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, AlertCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const LoginForm = () => {
   const [email, setEmail] = useState("");
@@ -15,6 +16,7 @@ const LoginForm = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signIn, signInWithGoogle } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,29 +24,22 @@ const LoginForm = () => {
     setIsLoading(true);
     
     try {
-      // In a real application, this would call an authentication API
-      // For now, we'll simulate a successful login with a mock check
-      if (email && password.length >= 6) {
-        // Simulate API delay
-        await new Promise(r => setTimeout(r, 800));
-        
-        // Store user authentication state
-        localStorage.setItem("medaiUser", JSON.stringify({ email }));
-        
-        toast({
-          title: "Login Successful",
-          description: "Welcome to MedAI Health Compass!",
-        });
-        
-        navigate("/dashboard");
-      } else {
-        setError("Invalid email or password. Password must be at least 6 characters.");
-      }
-    } catch (error) {
-      setError("Failed to login. Please try again.");
+      await signIn(email, password);
+      navigate("/dashboard");
+    } catch (error: any) {
+      setError(error.message || "Failed to login. Please try again.");
       console.error("Login error:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+      // No need to navigate, the OAuth callback will handle it
+    } catch (error) {
+      console.error("Google login error:", error);
     }
   };
 
@@ -127,12 +122,7 @@ const LoginForm = () => {
           type="button" 
           variant="outline" 
           className="w-full"
-          onClick={() => {
-            toast({
-              title: "Google Sign In",
-              description: "This feature will be available soon!",
-            });
-          }}
+          onClick={handleGoogleSignIn}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
             <path

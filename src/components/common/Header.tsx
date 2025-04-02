@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,34 +11,40 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AlignJustify, User, LogOut, Settings, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { user, signOut } = useAuth();
 
   useEffect(() => {
-    const user = localStorage.getItem("medaiUser");
     if (user) {
-      const userData = JSON.parse(user);
-      setIsAuthenticated(true);
-      setUserName(userData.name || userData.email.split("@")[0]);
+      // Try to get name from user metadata
+      setUserName(
+        user.user_metadata?.full_name || 
+        user.user_metadata?.name || 
+        user.email?.split("@")[0] || 
+        "User"
+      );
     } else {
-      setIsAuthenticated(false);
+      // Legacy support
+      const storedUser = localStorage.getItem("medaiUser");
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        setUserName(userData.name || userData.email.split("@")[0]);
+      }
     }
-  }, [location]);
+  }, [user, location]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("medaiUser");
-    setIsAuthenticated(false);
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out.",
-    });
+  const handleLogout = async () => {
+    await signOut();
     navigate("/");
   };
+
+  const isAuthenticated = !!user;
 
   return (
     <header className="border-b sticky top-0 z-30 bg-white">
@@ -79,6 +86,7 @@ const Header = () => {
                 <div className="flex items-center justify-start p-2">
                   <div className="flex flex-col space-y-1 leading-none">
                     <p className="font-medium">{userName}</p>
+                    {user?.email && <p className="text-xs text-muted-foreground">{user.email}</p>}
                   </div>
                 </div>
                 <DropdownMenuSeparator />
